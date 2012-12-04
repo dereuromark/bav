@@ -50,14 +50,19 @@ class BAV_DataBackend_File extends BAV_DataBackend {
     /**
      * @var BAV_FileParser
      */
-    $parser;
+    $parser,
+    /**
+     * @var string
+     */
+    $tmpDir;
 
 
     /**
      * @param String $file The data source
      */
-    public function __construct($file = null) {
+    public function __construct($file = null, $tmpDir = null) {
         $this->parser = new BAV_FileParser($file);
+        $this->tmpDir = $tmpDir;
     }
     
     
@@ -90,7 +95,7 @@ class BAV_DataBackend_File extends BAV_DataBackend {
         asort($index);
         
         //write a sorted bank file atomically
-        $temp    = tempnam(self::getTempdir(), "BAV_");
+        $temp    = tempnam($this->getTempdir(), "BAV_");
         $tempH   = fopen($temp, 'w');
         if (! ($temp && $tempH)) {
             throw new BAV_DataBackendException_IO("Could not open a temporary file.");
@@ -178,7 +183,7 @@ class BAV_DataBackend_File extends BAV_DataBackend {
         
         }
         
-        $temp    = tempnam(self::getTempdir(), "BAV_");
+        $temp    = tempnam($this->getTempdir(), "BAV_");
         $tempH   = fopen($temp, 'w');
         if (! ($temp && $tempH)) {
             throw new BAV_DataBackendException_IO();
@@ -219,7 +224,7 @@ class BAV_DataBackend_File extends BAV_DataBackend {
         curl_close($ch);
 
         if ($isZIP) {
-            $file = tempnam(self::getTempdir(), "BAV_");
+            $file = tempnam($this->getTempdir(), "BAV_");
             if (! $file) {
                 unlink($temp);
                 throw new BAV_DataBackendException_IO();
@@ -274,10 +279,9 @@ class BAV_DataBackend_File extends BAV_DataBackend {
 
         }
 
-        $isUnlinked = unlink($source);
+        $isUnlinked = @unlink($source);
         if (! $isUnlinked) {
             trigger_error("Failed to unlink $source.");
-
         }
 
         $isRenamed = rename($tempFileOnSameFS, $destination);
@@ -498,7 +502,10 @@ class BAV_DataBackend_File extends BAV_DataBackend {
      * @throws BAV_DataBackendException_IO
      * @return String a writable directory for temporary files
      */
-    public static function getTempdir() {
+    public function getTempdir() {
+        if ($this->tmpDir) {
+            return $this->tmpDir;
+        }
         $tmpDirs = array(
             function_exists('sys_get_temp_dir') ? sys_get_temp_dir() : false,
             empty($_ENV['TMP'])    ? false : $_ENV['TMP'],
@@ -511,7 +518,7 @@ class BAV_DataBackend_File extends BAV_DataBackend {
         foreach ($tmpDirs as $tmpDir) {
         	if ($tmpDir && is_writable($tmpDir)) {
         		return realpath($tmpDir);
-        		
+        
         	}
         	
         }
